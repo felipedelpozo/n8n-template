@@ -41,7 +41,7 @@ RUN apk add --no-cache \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-RUN npm install -g cryptr
+RUN npm install -g puppeteer
 
 USER node
 
