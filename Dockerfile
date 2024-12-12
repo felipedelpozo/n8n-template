@@ -21,6 +21,8 @@ ENV DB_POSTGRESDB_PASSWORD=$PGPASSWORD
 ENV N8N_BASIC_AUTH_ACTIVE=true
 ENV N8N_BASIC_AUTH_USER=$USERNAME
 ENV N8N_BASIC_AUTH_PASSWORD=$PASSWORD
+ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+ENV N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY
 
 ENV ENABLE_ALPINE_PRIVATE_NETWORKING=true
 
@@ -34,8 +36,8 @@ RUN mkdir -p ~/.n8n/nodes
 RUN cd ~/.n8n/nodes && \
     npm install --production --force n8n-nodes-browserless n8n-nodes-evolution-api n8n-nodes-globals
 
-RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n import:workflow --separate --input=./workflows
-RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n update:workflow --all --active=true
-# RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n import:credentials -i ./credential-dummy.json
+RUN n8n import:workflow --separate --input=./workflows/
+RUN n8n update:workflow --all --active=true
+# RUN n8n import:credentials --separate --input=./credentials
 
 CMD ["n8n", "start"]
