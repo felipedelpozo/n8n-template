@@ -41,14 +41,14 @@ RUN apk add --no-cache \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-RUN npm install -g puppeteer
+RUN npm install -g cryptr
+
+USER node
 
 RUN mkdir -p ~/.n8n/nodes
 
 # Add custom n8n nodes from Codely
 RUN cd ~/.n8n/nodes && \
-npm install --production --force n8n-nodes-puppeteer n8n-nodes-evolution-api n8n-nodes-globals
-
-USER node
+    npm install --production --force n8n-nodes-puppeteer n8n-nodes-evolution-api n8n-nodes-globals
 
 CMD ["n8n", "start"]
