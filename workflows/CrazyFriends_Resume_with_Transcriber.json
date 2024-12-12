@@ -1,0 +1,936 @@
+{
+  "name": "CrazyFriends Resume with Transcriber",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "06dfba0b-705b-4663-94f2-a1fff3c4de88",
+              "name": "baseUrl",
+              "value": "https://evolution-api-production-44e7.up.railway.app",
+              "type": "string"
+            },
+            {
+              "id": "b9f9843a-734d-4349-8abc-ab5f44752997",
+              "name": "instance",
+              "value": "Personal",
+              "type": "string"
+            },
+            {
+              "id": "28f7e185-32f1-4071-b0b1-9cb317366e76",
+              "name": "remoteJid",
+              "value": "34667370571-1606306593@g.us",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d842bb5-8b85-4b84-b6db-d1b67c8d1d91",
+      "name": "Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3480,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Variables').item.json.baseUrl }}/chat/findMessages/{{ $('Variables').item.json.instance }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpbinApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"where\": {\n        \"key\": {\n            \"remoteJid\": \"{{ $('Variables').item.json.remoteJid }}\"\n        }\n    },\n    \"offset\": 10,\n    \"page\": 1\n}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "page",
+                    "value": "={{ $response.body.messages.currentPage + 1 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.messages.records[0].messageTimestamp < DateTime.now().minus({ days: 1 }).startOf('day').toMillis() / 1000 }}",
+              "limitPagesFetched": true
+            }
+          }
+        }
+      },
+      "id": "75ad67d3-b695-46fe-901f-3a0d6339cb91",
+      "name": "findMessages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3340,
+        320
+      ],
+      "credentials": {
+        "httpbinApi": {
+          "id": "3L31sOzwMbTmbi6C",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $('findMessages').all().map((item) => item.json.messages.records).flat();\n\nconst yesterdayTimestampStart = DateTime.now().minus({ days: 1 }).startOf('day').toMillis() / 1000\nconst yesterdayTimestampEnd = DateTime.now().minus({ days: 1 }).endOf('day').toMillis() / 1000\n\nconst yesterdayRecords = results.sort((a, b) => a.messageTimestamp - b.messageTimestamp).filter(item => item.messageTimestamp >= yesterdayTimestampStart && item.messageTimestamp <= yesterdayTimestampEnd && !(item.key.fromMe === true && item.messageType === \"conversation\" && item.message.conversation.length > 100))\n\nconst records = yesterdayRecords.map((item) => ({\n  id: item.key.id,\n  source: item.source,\n  pushName: item.pushName.length > 0 ? item.pushName : item.key.remoteJid,\n  timestamp: item.messageTimestamp * 1000,\n  type: item.messageType,\n  value: item.message[item.messageType]\n}))\n\nreturn records"
+      },
+      "id": "8661b5fa-c9ef-4b96-b180-cac96818dd06",
+      "name": "Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "type": "refine",
+        "options": {
+          "refineQuestionPrompt": "=Resume en menos de 4000 caracteres, los eventos más destacados del día anterior con fecha \"{{ $json.date }}\", en un grupo de WhatsApp llamado CrazyFriends, como si fueras un periodista divertido y lleno de energía 🎙️✨. Hazlo entretenido, usando un tono ligero y emojis para darle vida al relato. Destaca los debates candentes 🔥, las decisiones importantes 🤝, y cita a los participantes de forma memorable.\n\nIncluye referencias a las imágenes 📸 y audios 🎧 que se compartieron. Para las imágenes, describe el contenido con humor o exageración. Para los audios, menciona lo más destacado, ya sea algo gracioso, relevante o curioso.\n\nNo te preocupes demasiado por los saludos de buenos días y buenas noches 🌅🌙, a menos que sean graciosos o relevantes. Enfócate en lo que realmente hizo el día interesante, caótico o divertido. Termina con un guiño a lo que podría pasar mañana. No sigas un orden estricto, solo cuenta lo más relevante y entretenido. ¡Hazlo brillar! 🌟\n\n\"{text}\""
+        }
+      },
+      "id": "c72f3485-0194-4b18-8b1e-1e28270a7b1f",
+      "name": "Summarize Transcript",
+      "type": "@n8n/n8n-nodes-langchain.chainSummarization",
+      "position": [
+        -1140,
+        340
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "pointers": "/plain",
+        "options": {}
+      },
+      "id": "a167c01c-984f-4d81-b6d4-aac61b05e70b",
+      "name": "Workflow Input to JSON Document",
+      "type": "@n8n/n8n-nodes-langchain.documentJsonInputLoader",
+      "position": [
+        -1020,
+        540
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "chunkSize": 6000,
+        "chunkOverlap": 1000,
+        "options": {}
+      },
+      "id": "3a56fef4-0719-43d5-a758-ab973ee39fe6",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "position": [
+        -940,
+        700
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3640,
+        320
+      ],
+      "id": "1e63cb39-4fd3-478d-bfa3-8458ea4780b4",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "bdd04489-5e59-49a1-9b88-af620e790691",
+      "name": "GPT4o-mini - Summarize",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [
+        -1140,
+        540
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "openAiApi": {
+          "id": "XY5vX0AC5Cy6zbpt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "input": "={{ $json.response.output_text }}",
+        "options": {
+          "response_format": "opus",
+          "speed": 1.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.6,
+      "position": [
+        -500,
+        100
+      ],
+      "id": "b4ad509c-ff6b-4a3f-ae08-03e0c7d85e01",
+      "name": "OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "XY5vX0AC5Cy6zbpt",
+          "name": "OpenAi account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        100
+      ],
+      "id": "4d218d86-935d-43da-aac2-6cfe908c030b",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "content": "## Audio\nEnvía el resumen en formato audio",
+        "height": 280,
+        "width": 560,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -520,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "6fafe691-cf42-4d86-b253-29bb5fb55eae",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Resume\nGenera el resumen con OpenAI",
+        "height": 620,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1160,
+        240
+      ],
+      "typeVersion": 1,
+      "id": "3125c0dc-b5f4-4f53-a5f1-1a9a802f5f39",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Variables').first().json.baseUrl }}/message/sendText/{{ $('Variables').first().json.instance }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpbinApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"number\": \"{{ $('Variables').first().json.remoteJid }}\",\n    \"text\": {{ JSON.stringify($json.response.output_text) }}\n}",
+        "options": {}
+      },
+      "id": "fc8da61f-75d1-4ebc-95bd-2f188c710845",
+      "name": "sendText",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -140,
+        340
+      ],
+      "credentials": {
+        "httpbinApi": {
+          "id": "3L31sOzwMbTmbi6C",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Variables').first().json.baseUrl }}/message/sendWhatsAppAudio/{{ $('Variables').first().json.instance }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpbinApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"number\": \"{{ $('Variables').first().json.remoteJid }}\",\n    \"audio\": \"{{ $json.data }}\"\n}",
+        "options": {}
+      },
+      "id": "8ca72aac-59e8-44c0-b09f-ee9e39d0d7c9",
+      "name": "sendWhatsAppAudio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -140,
+        100
+      ],
+      "credentials": {
+        "httpbinApi": {
+          "id": "3L31sOzwMbTmbi6C",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {}
+      },
+      "id": "dfc5dc20-1b65-435a-ac0f-a9ca99f01610",
+      "name": "Convert to File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -2360,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Variables').first().json.baseUrl }}/chat/getBase64FromMediaMessage/{{ $('Variables').first().json.instance }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpbinApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": {\n    \"key\": {\n      \"id\": \"{{ $json.id }}\"\n    }\n  },\n  \"convertToMp4\": true\n}",
+        "options": {}
+      },
+      "id": "cd82a760-bd7f-48ad-b272-6a705046b4a0",
+      "name": "getBase64FromMediaMessage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2540,
+        -120
+      ],
+      "credentials": {
+        "httpbinApi": {
+          "id": "3L31sOzwMbTmbi6C",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1f55d2c4-d0af-41c7-8459-aef3afd2b789",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "audioMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audioMessage"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "efe43c90-8860-47c2-98de-474a545d2cbc",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "imageMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "imageMessage"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -3020,
+        320
+      ],
+      "id": "9754638a-b539-46c2-8363-ef58642d7797",
+      "name": "Switch",
+      "alwaysOutputData": false,
+      "executeOnce": false
+    },
+    {
+      "parameters": {},
+      "id": "dc412aae-2489-47e1-83c3-ca3613794881",
+      "name": "Audio",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -2700,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const records = $('Switch').all().map((item) => item.json);\nconst transcribe = $('Transcriber').all().map((item) => item.json);\n\nif (!transcribe) {\n  return []\n}\n\nconst results = transcribe.map((item, index) => ({\n  ...records[index],\n  value: item && item.text ? item.text : undefined\n})).filter((item) => item.value !== undefined)\n\nreturn results"
+      },
+      "id": "724c59fa-f39d-4489-b1c2-2f2ffe4c8173",
+      "name": "Records Audio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2040,
+        -120
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "id": "250a75d5-ab99-4135-875f-ad87b04c3f94",
+      "name": "Transcriber",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [
+        -2200,
+        -120
+      ],
+      "typeVersion": 1.5,
+      "credentials": {
+        "openAiApi": {
+          "id": "XY5vX0AC5Cy6zbpt",
+          "name": "OpenAi account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const records = $('Records').all()\nconst audioRecords = $('Records Audio').all()\nconst imageRecords = $('Records Image').all()\n\nconst audioMap = new Map(audioRecords.map(item => [item.json.id, item.json]));\nconst imageMap = new Map(imageRecords.map(item => [item.json.id, item.json]));\n\nconst recordsCombined = records.map(item => audioMap.has(item.json.id) ? audioMap.get(item.json.id) : imageMap.has(item.json.id) ? imageMap.get(item.json.id) : item.json);\n\nconst plain = recordsCombined.filter((item) => item.type === \"conversation\" || item.type === \"audioMessage\" || item.type === \"imageMessage\").map((item) => `[${item.pushName} - ${DateTime.fromMillis(item.timestamp).toISOTime()} (${item.type})] - ${item.value}`).join(\"\\n\");\n\nreturn { date: DateTime.now().minus({ days: 1 }).toISODate(), plain }"
+      },
+      "id": "90b0f203-1ae5-478d-bb75-dfc8324916cb",
+      "name": "Merge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1420,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "text": "¿Qué hay en esta imagen?",
+        "inputType": "base64",
+        "options": {}
+      },
+      "id": "4b34d94d-2ceb-4e38-afd7-23457c13dbf7",
+      "name": "Analyze image",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [
+        -2200,
+        120
+      ],
+      "typeVersion": 1.5,
+      "credentials": {
+        "openAiApi": {
+          "id": "XY5vX0AC5Cy6zbpt",
+          "name": "OpenAi account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "id": "f5ec6e61-1fb3-4a7f-b80b-3dfc801cab9b",
+      "name": "Image",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -2700,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Variables').first().json.baseUrl }}/chat/getBase64FromMediaMessage/{{ $('Variables').first().json.instance }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpbinApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": {\n    \"key\": {\n      \"id\": \"{{ $json.id }}\"\n    }\n  },\n  \"convertToMp4\": true\n}",
+        "options": {}
+      },
+      "id": "cf8860ce-b794-454e-894c-6775505b1fa2",
+      "name": "getImageBase64",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2540,
+        120
+      ],
+      "credentials": {
+        "httpbinApi": {
+          "id": "3L31sOzwMbTmbi6C",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {}
+      },
+      "id": "72396e02-0b5e-49dc-ace8-e3dec2d4a854",
+      "name": "Convert to Image",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -2360,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const records = $('Switch').all().map((item) => item.json);\nconst transcribe = $('Analyze image').all().map((item) => item.json.content);\n\nif (!transcribe) {\n  return []\n}\n\nreturn records.map((item, index) => ({ ...item, value: transcribe[index]}));\n"
+      },
+      "id": "49cf64bd-aeac-4051-ae85-4bc95947f28f",
+      "name": "Records Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2040,
+        120
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -1620,
+        340
+      ],
+      "id": "76e8eb49-aa41-452e-a3fc-a513aaa38c45",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        160,
+        320
+      ],
+      "id": "c519164e-8ddb-4764-84a6-d908807e3261",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        360,
+        320
+      ],
+      "id": "52bd68b0-8041-434f-aa82-cc2ee4a70c5c",
+      "name": "End"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Variables": {
+      "main": [
+        [
+          {
+            "node": "findMessages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "findMessages": {
+      "main": [
+        [
+          {
+            "node": "Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Records": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Input to JSON Document": {
+      "ai_document": [
+        [
+          {
+            "node": "Summarize Transcript",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Workflow Input to JSON Document",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Transcript": {
+      "main": [
+        [
+          {
+            "node": "OpenAI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "sendText",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT4o-mini - Summarize": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summarize Transcript",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "sendWhatsAppAudio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Transcriber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "getBase64FromMediaMessage": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Audio": {
+      "main": [
+        [
+          {
+            "node": "getBase64FromMediaMessage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Records Audio": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcriber": {
+      "main": [
+        [
+          {
+            "node": "Records Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Summarize Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "Records Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image": {
+      "main": [
+        [
+          {
+            "node": "getImageBase64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "getImageBase64": {
+      "main": [
+        [
+          {
+            "node": "Convert to Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to Image": {
+      "main": [
+        [
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Records Image": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sendWhatsAppAudio": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sendText": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid",
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "da84034d-a2c0-49cb-9260-2ae88f628780",
+  "meta": {
+    "instanceId": "278808b6c9be345acd390f1e1b9fd98d63c63c7f61b53fdf8b704a1525cd802f"
+  },
+  "id": "WIYGgJ9gz0UfLLBP",
+  "tags": [
+    {
+      "createdAt": "2024-11-21T17:37:36.809Z",
+      "updatedAt": "2024-11-21T17:37:36.809Z",
+      "id": "0ZTTiXffMj61f0Kf",
+      "name": "CrazyFriends"
+    }
+  ]
+}

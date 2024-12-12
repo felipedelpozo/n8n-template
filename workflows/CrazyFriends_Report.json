@@ -1,0 +1,478 @@
+{
+  "name": "CrazyFriends Report",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "06dfba0b-705b-4663-94f2-a1fff3c4de88",
+              "name": "baseUrl",
+              "value": "https://evolution-api-production-44e7.up.railway.app",
+              "type": "string"
+            },
+            {
+              "id": "b9f9843a-734d-4349-8abc-ab5f44752997",
+              "name": "instance",
+              "value": "Personal",
+              "type": "string"
+            },
+            {
+              "id": "28f7e185-32f1-4071-b0b1-9cb317366e76",
+              "name": "remoteJid",
+              "value": "34667370571-1606306593@g.us",
+              "type": "string"
+            },
+            {
+              "id": "11f67440-3f89-47b7-b580-4895e3f705c6",
+              "name": "days",
+              "value": 15,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "84c5b3c3-56a3-44ae-a885-8045f58865b1",
+      "name": "Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2120,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Variables').item.json.baseUrl }}/chat/findMessages/{{ $('Variables').item.json.instance }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpbinApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"where\": {\n        \"key\": {\n            \"remoteJid\": \"{{ $('Variables').item.json.remoteJid }}\"\n        }\n    },\n    \"offset\": 10,\n    \"page\": 1\n}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "page",
+                    "value": "={{ $response.body.messages.currentPage + 1 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.messages.records[0].messageTimestamp < DateTime.now().minus({ days: $json.days }).startOf('day').toMillis() / 1000 }}",
+              "limitPagesFetched": true
+            }
+          }
+        }
+      },
+      "id": "3129cf67-65d8-4a35-951c-5bfece415bc0",
+      "name": "findMessages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1900,
+        240
+      ],
+      "credentials": {
+        "httpbinApi": {
+          "id": "3L31sOzwMbTmbi6C",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const days = $('Variables').last().json.days;\nconst results = $('findMessages').all().map((item) => item.json.messages.records).flat();\nconst participants = $('findParticipants').all().map((item) => item.json.participants).flat();\n\nconst groupedData = results.reduce((acc, item) => {\n  if (!item.key.participant) {\n    return acc\n  }\n  \n  if (!acc[item.key.participant]) {\n    acc[item.key.participant] = [];\n  }\n  acc[item.key.participant].push(item);\n  return acc;\n}, {});\n\nconst countWords = (messages) => messages.filter((item) => item.messageType === 'conversation').map((item) => item.message.conversation).reduce((total, texto) => {\n  const palabras = texto.trim().split(/\\s+/);\n  return total + palabras.length;\n}, 0);\n\nconst now = DateTime.now();\n\nconst report = Object.values(participants.reduce((acc, item) => {\n  if (!acc[item.id]) {\n    const lastMessage = groupedData[item.id] ? groupedData[item.id].sort((a, b) => a.menssageTimestamp - b.menssageTimestamp)[0].messageTimestamp : false;\n    acc[item.id] = {\n      id: item.id,\n      phone: item.id.split('@')[0],\n      admin: item.admin === 'admin',\n      name: item.name,\n      totalMessages: groupedData[item.id] ? groupedData[item.id].length : 0,\n      totalWords: groupedData[item.id] ? countWords(groupedData[item.id]) : 0,\n      lastMessageDays: groupedData[item.id] ? Math.round(now.diff(DateTime.fromMillis(lastMessage * 1000), 'days').days) : days\n    };\n  }\n  return acc;\n}, {}));\n\nconst totalMessages = report.reduce((total, { totalMessages }) => total + totalMessages, 0);\nconst totalWords = report.reduce((total, { totalWords }) => total + totalWords, 0);\nconst calculateInterest = (messages, words, daysInactive) => (((messages / totalMessages) + (words / totalWords)) / 2) * Math.max(0, 1 - daysInactive / days);\n\nconst reportFinal = report.map((item) => ({ ...item, interest: calculateInterest(item.totalMessages, item.totalWords, item.lastMessageDays) })).sort((a, b) => a.interest - b.interest);\n\nconst candidate = reportFinal.filter((item) => item.interest === 0).map((item) => `${item.name ?? item.phone}${item.name ? ` (${item.phone})` : ''}`).join(\"; \");\n\nconst admins = reportFinal.filter((item) => item.admin).map((item) => item.id);\n\nreturn { candidate, admins }\n"
+      },
+      "id": "704ebc00-e376-43ac-bb0c-28bba6489d52",
+      "name": "Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1460,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2280,
+        340
+      ],
+      "id": "033c0ce9-b08d-40f4-a004-12afaba37405",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Variables').item.json.baseUrl }}/group/participants/{{ $('Variables').item.json.instance }}?groupJid={{ $('Variables').item.json.remoteJid }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpbinApi",
+        "options": {}
+      },
+      "id": "fc133d9d-1679-4d91-ba39-7d65314f06f1",
+      "name": "findParticipants",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1900,
+        420
+      ],
+      "credentials": {
+        "httpbinApi": {
+          "id": "3L31sOzwMbTmbi6C",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -1660,
+        340
+      ],
+      "id": "5203d618-4b1a-400e-93d1-a1deaddd715e",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=\"Eres un asistente que ayuda a los administradores del grupo de WhatsApp llamado 'CrazyFriends'. Tu tarea es generar un mensaje dirigido a los administradores para informar que los siguientes miembros han estado inactivos durante más de ${{ $('Variables').last().json.days }} días: {{ $json.candidate }}. El mensaje debe ser claro, sugiriendo que los administradores notifiquen a estos miembros sobre su inactividad y, si no hay cambios, consideren su eliminación del grupo. No incluyas firma.",
+              "role": "system"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.7,
+      "position": [
+        -1260,
+        340
+      ],
+      "id": "26f962c5-8989-4253-b529-27109fc5f8c6",
+      "name": "OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "XY5vX0AC5Cy6zbpt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Variables').first().json.baseUrl }}/message/sendText/{{ $('Variables').first().json.instance }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpbinApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"number\": \"{{ $json.admin }}\",\n    \"text\": {{ JSON.stringify($('OpenAI').last().json.message.content) }}\n}",
+        "options": {}
+      },
+      "id": "9765a217-5854-4d32-adf1-0f633462bec9",
+      "name": "sendText",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        360
+      ],
+      "credentials": {
+        "httpbinApi": {
+          "id": "3L31sOzwMbTmbi6C",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "admins",
+        "options": {
+          "destinationFieldName": "admin"
+        }
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1180,
+        600
+      ],
+      "id": "7e9dfd55-a8ba-449d-8d7c-9637ab39277b",
+      "name": "Split Out",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -920,
+        340
+      ],
+      "id": "01836fc7-1347-461e-a7c4-174fa73ab410",
+      "name": "MergeResults"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        360
+      ],
+      "id": "3d9a6659-6782-4591-bd53-d2e80c1369bb",
+      "name": "Wait",
+      "webhookId": "929de138-1e7a-42fa-a335-5b44964cf452"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f9a331d0-6ffe-4793-9f77-2c9dd03caac0",
+              "leftValue": "={{ $json.admin }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -740,
+        340
+      ],
+      "id": "178c1039-df92-415f-af66-cd762eeff80e",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -520,
+        340
+      ],
+      "id": "f7e3a87f-3f7e-478c-b683-cba3870c35ef",
+      "name": "Loop Over Items"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Variables": {
+      "main": [
+        [
+          {
+            "node": "findMessages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "findParticipants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "findMessages": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Records": {
+      "main": [
+        [
+          {
+            "node": "OpenAI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "findParticipants": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI": {
+      "main": [
+        [
+          {
+            "node": "MergeResults",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sendText": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "MergeResults",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "MergeResults": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "sendText",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid",
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "6e06666c-4131-4443-8f41-190087a6e8c3",
+  "meta": {
+    "instanceId": "278808b6c9be345acd390f1e1b9fd98d63c63c7f61b53fdf8b704a1525cd802f"
+  },
+  "id": "IVsLbWkdmOqWDJWM",
+  "tags": [
+    {
+      "createdAt": "2024-11-21T17:37:36.809Z",
+      "updatedAt": "2024-11-21T17:37:36.809Z",
+      "id": "0ZTTiXffMj61f0Kf",
+      "name": "CrazyFriends"
+    }
+  ]
+}
