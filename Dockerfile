@@ -22,10 +22,7 @@ WORKDIR /home/node
 COPY ./workflows ./workflows
 # COPY ./credentials ./credentials
 
-RUN mkdir -p ~/.n8n/nodes
-
-RUN cd ~/.n8n/nodes && \
-    npm install --production --force n8n-nodes-browserless n8n-nodes-evolution-api \ 
+RUN npm install --production --force n8n-nodes-browserless n8n-nodes-evolution-api \ 
     n8n-nodes-globals @splainez/n8n-nodes-phonenumber-parser \
     n8n-nodes-edit-image-plus
 
