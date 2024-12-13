@@ -1,0 +1,8 @@
+{
+ "executions": {
+  "saveDataOnSuccess": "none"
+ },
+ "generic": {
+  "timezone": "Europe/Madrid"
+ }
+}

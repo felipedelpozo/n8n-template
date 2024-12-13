@@ -2,7 +2,10 @@ FROM n8nio/n8n:latest
 
 ENV GENERIC_TIMEZONE=Europe/Madrid
 ENV ENABLE_ALPINE_PRIVATE_NETWORKING=true
-ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+ENV N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY
+
+RUN printenv
 
 USER root
 
@@ -10,11 +13,13 @@ RUN mkdir -p /home/node/.n8n/nodes && \
     chown -R node:node /home/node/.n8n && \
     chmod 700 /home/node/.n8n
 
+COPY ./configs/config /home/node/.n8n/config
 COPY ./workflows /home/node/.n8n/nodes/workflows
+COPY ./credentials /home/node/.n8n/nodes/credentials
+
+RUN chmod 600 /home/node/.n8n/config
 
 USER node
-
-#COPY ./credentials ./credentials
 
 RUN cd /home/node/.n8n/nodes && \
     npm install --omit=dev n8n-nodes-browserless n8n-nodes-evolution-api \ 
@@ -22,7 +27,7 @@ RUN cd /home/node/.n8n/nodes && \
     n8n-nodes-edit-image-plus
 
 RUN n8n import:workflow --separate --input=/home/node/.n8n/nodes/workflows/
-# RUN n8n update:workflow --all --active=true
-# RUN n8n import:credentials --separate --input=./credentials
+RUN n8n update:workflow --all --active=true
+RUN n8n import:credentials --separate --input=/home/node/.n8n/nodes/credentials
 
 CMD ["n8n", "start"]
