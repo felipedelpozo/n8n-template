@@ -17,12 +17,11 @@ RUN apk add --no-cache shadow && \
 
 USER n8n
 
-WORKDIR /home/node
-
 COPY ./workflows ./workflows
 # COPY ./credentials ./credentials
 
-RUN npm install --production --force n8n-nodes-browserless n8n-nodes-evolution-api \ 
+RUN cd ~/.n8n/nodes && \
+    npm install --production --force n8n-nodes-browserless n8n-nodes-evolution-api \ 
     n8n-nodes-globals @splainez/n8n-nodes-phonenumber-parser \
     n8n-nodes-edit-image-plus
 
