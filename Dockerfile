@@ -1,15 +1,13 @@
 FROM n8nio/n8n:latest
 
 ENV ENABLE_ALPINE_PRIVATE_NETWORKING=true
-ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
 
 USER root
 
 RUN mkdir -p /home/node/.n8n/nodes && \
-    echo '{}' > /home/node/.n8n/config && \
     chown -R node:node /home/node/.n8n && \
-    chmod 700 /home/node/.n8n && \
-    chmod 600 /home/node/.n8n/config
+    chmod 700 /home/node/.n8n
 
 USER node
 
