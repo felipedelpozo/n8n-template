@@ -15,7 +15,7 @@ RUN cd ~/.n8n/nodes && \
     n8n-nodes-globals @splainez/n8n-nodes-phonenumber-parser \
     n8n-nodes-edit-image-plus
 
-RUN chmod -R 700 ~/.n8n && chmod 600 ~/.n8n/config
+RUN chmod -R 700 /home/node/.n8n && chmod 600 /home/node/.n8n/config
 
 RUN n8n import:workflow --separate --input=./workflows/
 RUN n8n update:workflow --all --active=true
