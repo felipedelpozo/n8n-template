@@ -32,8 +32,8 @@ RUN cd /home/node/.n8n/nodes && \
     n8n-nodes-globals @splainez/n8n-nodes-phonenumber-parser \
     n8n-nodes-edit-image-plus
 
-RUN n8n import:workflow --separate --input=./workflows/
-RUN n8n update:workflow --all --active=true
+# RUN n8n import:workflow --separate --input=./workflows/
+# RUN n8n update:workflow --all --active=true
 # RUN n8n import:credentials --separate --input=./credentials
 
 CMD ["n8n", "start"]
