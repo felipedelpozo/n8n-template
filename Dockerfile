@@ -4,15 +4,20 @@ ENV GENERIC_TIMEZONE=Europe/Madrid
 ENV ENABLE_ALPINE_PRIVATE_NETWORKING=true
 ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
 
-USER node
+USER root
+
+RUN mkdir -p /home/node/.n8n/nodes && \
+    chown -R node:node /home/node/.n8n && \
+    chmod 700 /home/node/.n8n
+
 COPY ./workflows /home/node/.n8n/nodes/workflows
+
+USER node
 
 #COPY ./credentials ./credentials
 
-WORKDIR /home/node/.n8n/nodes
-
 RUN cd /home/node/.n8n/nodes && \
-    npm install --production --force n8n-nodes-browserless n8n-nodes-evolution-api \ 
+    npm install --omit=dev n8n-nodes-browserless n8n-nodes-evolution-api \ 
     n8n-nodes-globals @splainez/n8n-nodes-phonenumber-parser \
     n8n-nodes-edit-image-plus
 
