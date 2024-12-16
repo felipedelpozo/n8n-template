@@ -1,8 +1,12 @@
 FROM n8nio/n8n:latest
 
+ARG N8N_ENCRYPTION_KEY
+
 ENV GENERIC_TIMEZONE=Europe/Madrid
 ENV ENABLE_ALPINE_PRIVATE_NETWORKING=true
 ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+
+RUN echo $N8N_ENCRYPTION_KEY
 
 USER root
 
@@ -14,11 +18,6 @@ COPY ./credentials /home/node/.n8n/nodes/credentials
 RUN chown -R node:node /home/node/.n8n && \
     chmod 700 /home/node/.n8n
 
-COPY docker-entrypoint.sh /sbin/
-COPY n8n_import.sh /sbin/
-RUN chmod +x /sbin/docker-entrypoint.sh  && \
-    chmod +x /sbin/docker-entrypoint.sh 
-
 USER node
 
 RUN cd /home/node/.n8n/nodes && \
@@ -26,6 +25,8 @@ RUN cd /home/node/.n8n/nodes && \
     n8n-nodes-globals @splainez/n8n-nodes-phonenumber-parser \
     n8n-nodes-edit-image-plus
 
-EXPOSE 5678
+RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n import:workflow --separate --input=/home/node/.n8n/nodes/workflows/
+RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n update:workflow --all --active=true
+RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n import:credentials --separate --input=/home/node/.n8n/nodes/credentials
 
-ENTRYPOINT ["tini", "--", "/sbin/docker-entrypoint.sh"]
+CMD ["n8n", "start"]
