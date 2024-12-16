@@ -25,4 +25,8 @@ RUN n8n import:workflow --separate --input=/home/node/.n8n/nodes/workflows/
 RUN n8n update:workflow --all --active=true
 RUN n8n import:credentials --separate --input=/home/node/.n8n/nodes/credentials
 
-CMD ["n8n", "start"]
+EXPOSE 5678
+
+
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+ENTRYPOINT ["/docker-entrypoint.sh"]
