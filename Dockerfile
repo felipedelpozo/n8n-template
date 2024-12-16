@@ -21,12 +21,9 @@ RUN cd /home/node/.n8n/nodes && \
     n8n-nodes-globals @splainez/n8n-nodes-phonenumber-parser \
     n8n-nodes-edit-image-plus
 
-RUN n8n import:workflow --separate --input=/home/node/.n8n/nodes/workflows/
-RUN n8n update:workflow --all --active=true
-RUN n8n import:credentials --separate --input=/home/node/.n8n/nodes/credentials
-
 EXPOSE 5678
 
+COPY docker-entrypoint.sh /sbin/
+RUN chmod +x /sbin/docker-entrypoint.sh 
 
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["tini", "--", "/sbin/docker-entrypoint.sh"]
