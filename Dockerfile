@@ -15,7 +15,9 @@ RUN chown -R node:node /home/node/.n8n && \
     chmod 700 /home/node/.n8n
 
 COPY docker-entrypoint.sh /sbin/
-RUN chmod +x /sbin/docker-entrypoint.sh 
+COPY n8n_import.sh /sbin/
+RUN chmod +x /sbin/docker-entrypoint.sh  && \
+    chmod +x /sbin/docker-entrypoint.sh 
 
 USER node
 
