@@ -31,5 +31,3 @@ RUN cd /home/node/.n8n/nodes && \
 RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n import:workflow --separate --input=/home/node/.n8n/nodes/workflows/
 RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n update:workflow --all --active=true
 RUN N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY n8n import:credentials --separate --input=/home/node/.n8n/nodes/credentials
-
-CMD ["n8n", "start"]
