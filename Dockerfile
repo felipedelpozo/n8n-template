@@ -14,6 +14,9 @@ COPY ./credentials /home/node/.n8n/nodes/credentials
 RUN chown -R node:node /home/node/.n8n && \
     chmod 700 /home/node/.n8n
 
+COPY docker-entrypoint.sh /sbin/
+RUN chmod +x /sbin/docker-entrypoint.sh 
+
 USER node
 
 RUN cd /home/node/.n8n/nodes && \
@@ -22,8 +25,5 @@ RUN cd /home/node/.n8n/nodes && \
     n8n-nodes-edit-image-plus
 
 EXPOSE 5678
-
-COPY docker-entrypoint.sh /sbin/
-RUN chmod +x /sbin/docker-entrypoint.sh 
 
 ENTRYPOINT ["tini", "--", "/sbin/docker-entrypoint.sh"]
