@@ -1,7 +1,8 @@
-FROM --platform=linux/amd64 n8nio/n8n:latest
+FROM --platform=linux/amd64 n8nio/n8n:1.74.1
 
 ENV NODE_ENV=production
 ENV GENERIC_TIMEZONE=Europe/Madrid
+ENV TZ=Europe/Madrid
 ENV ENABLE_ALPINE_PRIVATE_NETWORKING=true
 ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
 
